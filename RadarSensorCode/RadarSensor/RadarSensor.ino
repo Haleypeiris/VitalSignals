@@ -44,10 +44,10 @@ void loop()
 {
   // put your main code here, to run repeatedly:
 
-  if(setBedDistance == 0.f)
+  while(setBedDistance == 0.f)
   {
-    Serial.print("distance from the bed");
-    setBedDistance = VALIDINPUT(Serial.parseFloat());
+    Serial.println("distance from the bed");
+    setBedDistance = 95.0f;//VALIDINPUT(Serial.parseFloat());
   }
 
   if (Serial1.available() && (setBedDistance != 0.f))
@@ -56,15 +56,17 @@ void loop()
     //Serial1 is the serial ports pin 0, 1 used for the board
     //printRawData(radar);
     humanDetection(radar, bodyDistance); //sets bodyDistance to a new value
-    if (bodyDistance <0.4f || bodyDistance >= 300.f)
+    Serial.println(bodyDistance);
+    if (bodyDistance*100 <40.f || bodyDistance*100 >= 300.f)
     {
       Serial.println("Error in reading measurement");
+      Serial.println(bodyDistance);
     }
-    else if (bodyDistance <= (setBedDistance - bodyThickness))
+    else if (bodyDistance*100 <= (setBedDistance - bodyThickness))
     {
-       Serial.println("Someone is present infront of the bed");
+      Serial.println("Someone is present infront of the bed");
     }
-    else if (bodyDistance > (setBedDistance*TOLERANCE))
+    else if (bodyDistance*100 > (setBedDistance*TOLERANCE))
     {
       Serial.println("Bed not detected");
     }
@@ -107,11 +109,11 @@ void humanDetection(BreathHeart_60GHz radar, float& returnValue)
         Serial.println("No human activity messages.");
         Serial.println("----------------------------");
         break; */
-      case BODYVAL:
+      /*case BODYVAL:
         Serial.print("The parameters of human body signs are: ");
         Serial.println(radar.bodysign_val, DEC);
         Serial.println("----------------------------");
-        break;
+        break; */
       case DISVAL:
       // Modifies returnValue value
         Serial.print("The sensor judges the distance to the human body to be: ");
