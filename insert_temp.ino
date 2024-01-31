@@ -7,13 +7,6 @@
  */
 
 #include <WiFiS3.h>
-//#include "wifi_login.h"  
-//const char ssid[] = SECRET_SSID;  // your network SSID (name)
-//const char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
-//const char ssid[] = "NatalieiPhone";  // change your network SSID (name)
-//const char pass[] = "nataliehaw";   // change your network password (use for WPA, or use as key for WEP)
-//const char ssid[] = "Spirit_Birdy";  // change your network SSID (name)
-//const char pass[] = "137queenstreetsouth\\,"; //this is the wifi password that works
 
 const char ssid[] = "NatalieiPhone";  // change your network SSID (name)
 const char pass[] = "nataliehaw";   // change your network password (use for WPA, or use as key for WEP)
@@ -23,16 +16,15 @@ int status = WL_IDLE_STATUS;
 
 int HTTP_PORT = 80;
 String HTTP_METHOD = "GET";
-//char HOST_NAME[] = "192.168.2.120";  // change to your PC's IP address EACH TIME FOR DIFFERENT NETWORK
-char HOST_NAME[] = "172.20.10.2"; //mac wifi
-//String PATH_NAME = "/insert_temp.php";
-String PATH_NAME = "/capstone/insert_temp.php";
-String queryString = "?temperature=33.1"; //change temp as you want
+//char HOST_NAME[] = "192.168.0.26";  // change to your PC's IP address
+char HOST_NAME[] = "172.17.101.34"; 
+String PATH_NAME = "/capstone/insert_temp.php"; //changed
+String queryString = "?temperature=35.1"; //changed temp value //thinking to change this to bodyDistance, which would be a value we retrieve
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Test");
-  Serial.println(pass);
+  //Serial.begin(9600);
+  Serial.begin(115200);
+
   // check for the WiFi module:
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("Communication with WiFi module failed!");
@@ -48,7 +40,6 @@ void setup() {
 
   // attempt to connect to WiFi network:
   while (status != WL_CONNECTED) {
-    Serial.println(pass);
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
@@ -78,6 +69,7 @@ void setup() {
         // read an incoming byte from the server and print it to serial monitor:
         char c = client.read();
         Serial.print(c);
+        Serial.println("checking if it enters this loop");
       }
     }
 
@@ -91,4 +83,4 @@ void setup() {
 }
 
 void loop() {
-} //issue: printing all the code inside the serial monitor
+}
