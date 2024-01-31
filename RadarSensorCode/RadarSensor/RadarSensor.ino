@@ -2,6 +2,7 @@
 #include "60ghzbreathheart.h"
 #include "RTC.h"
 #include "WiFiS3.h"
+//#include "FloatToString" library aka download if you don't have it Haley
 
 //Marcos
 #define TOLERANCE 1.1f
@@ -19,6 +20,22 @@
 
 // can also try hardware serial with
 
+//WIFI CODE
+const char ssid[] = "NatalieiPhone";  // change your network SSID (name)
+const char pass[] = "nataliehaw";   // change your network password (use for WPA, or use as key for WEP)
+
+WiFiClient client;
+int status = WL_IDLE_STATUS;
+
+int HTTP_PORT = 80;
+String HTTP_METHOD = "GET";
+//char HOST_NAME[] = "192.168.0.26";  // change to your PC's IP address
+char HOST_NAME[] = "172.17.101.34"; 
+String PATH_NAME = "/capstone/insert_temp.php"; //changed
+String queryString = "?temperature=35.1"; //gonna overwrite this within the loop hopefully
+//WIFI CODE
+
+String float_str = "empty";
 //Variables
 BreathHeart_60GHz radar = BreathHeart_60GHz(&Serial1);
 float setBedDistance = 0.f;
@@ -38,13 +55,43 @@ void setup() {
 
   Serial1.println("Readly1");
   //.println("Readly2");
+
+  //WIFI STUFF
+    // check for the WiFi module:
+  if (WiFi.status() == WL_NO_MODULE) {
+    Serial.println("Communication with WiFi module failed!");
+    // don't continue
+    while (true)
+      ;
+  }
+
+  String fv = WiFi.firmwareVersion();
+  if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
+    Serial.println("Please upgrade the firmware");
+  }
+
+  // attempt to connect to WiFi network:
+  while (status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+    status = WiFi.begin(ssid, pass);
+
+    // wait 10 seconds for connection:
+    delay(10000);
+  }
+
+  // print your board's IP address:
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  //WIFI STUFF
 }
 
 void loop()
 {
   // put your main code here, to run repeatedly:
 
-  while(setBedDistance == 0.f)
+  while(setBedDistance == 0.f) 
   {
     Serial.println("distance from the bed");
     setBedDistance = 95.0f;//VALIDINPUT(Serial.parseFloat());
@@ -56,7 +103,46 @@ void loop()
     //Serial1 is the serial ports pin 0, 1 used for the board
     //printRawData(radar);
     humanDetection(radar, bodyDistance); //sets bodyDistance to a new value
-    Serial.println(bodyDistance);
+    //[radardetect, distancedetect] = humanDetection(radar, bodyDistance); //cannot use to get fxtn bc void fxtn so just trust we can take these vars
+    //implement smth here that'll send bodyDistance to 
+
+    //WIFI STUFF
+      // connect to web server on port 80:
+          // connect to web server on port 80:
+    if (client.connect(HOST_NAME, HTTP_PORT)) {
+      // if connected:
+      Serial.println("Connected to server");
+      // make a HTTP request:
+      // send HTTP header
+      float_str = String(bodyDistance); //convert bodyDistance to string for PHP url
+      queryString = "?temperature="+float_str;
+      client.println(HTTP_METHOD + " " + PATH_NAME + queryString + " HTTP/1.1");
+      Serial.println(HTTP_METHOD + " " + PATH_NAME + queryString); //wanna know which PHP link to go to
+      delay(10000); //added bc want to give myself 60s to check if the link works
+      client.println("Host: " + String(HOST_NAME));
+      client.println("Connection: close");
+      client.println();  // end HTTP header
+
+      while (client.connected()) {
+        if (client.available()) {
+          // read an incoming byte from the server and print it to serial monitor:
+          char c = client.read();
+          Serial.print(c);
+          //Serial.println("check");
+        }
+      }
+
+      // the server's disconnected, stop the client:
+      //client.stop(); //
+      Serial.println();
+      Serial.println("not disconnected bc removed that line");
+    } else {  // if not connected:
+      Serial.println("connection failed");
+    }
+  //WIFI STUFF
+    //WIFI STUFF
+
+    Serial.println(bodyDistance); 
     if (bodyDistance*100 <40.f || bodyDistance*100 >= 300.f)
     {
       Serial.println("Error in reading measurement");
@@ -121,7 +207,7 @@ void humanDetection(BreathHeart_60GHz radar, float& returnValue)
         Serial.println(" m");
         Serial.println("----------------------------");
 
-        returnValue = radar.distance;
+        returnValue = radar.distance; //where body distance is being calculated so it gets saved from this function? rewrites it?
 
         break;
     }
