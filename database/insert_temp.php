@@ -1,17 +1,9 @@
-<html>
-<!-- <?php //require_once('../../private/initialize.php');  ?> -->
-
-<?php $page_title = 'Vital Signs'; ?>
-
-<!-- COMMENT OUT IF YOU DON'T HAVE THE HEADER-->
-<?php include('private/staff_header.php'); ?>
-
 <?php
 
 if(isset($_GET["temperature"])) {
    $temperature = $_GET["temperature"]; // get temperature value from HTTP GET
 
-   $servername = "localhost";
+   $servername = "localhost"; //am I supposed to change these
    $username = "Arduino";
    $password = "ArduinoGetStarted.com";
    $dbname = "db_arduino";
@@ -25,24 +17,16 @@ if(isset($_GET["temperature"])) {
 
    $sql = "INSERT INTO tbl_temp (temp_value) VALUES ($temperature)";
 
-    // Currently not recognizing isset(get(temp))
    if ($conn->query($sql) === TRUE) {
-      echo "<p>New record created successfully\n\n</p>";
+      echo "Detected someone ";
       echo $temperature;
-      echo " degC";
+      echo " metres away";
    } else {
       echo "Error: " . $sql . " => " . $conn->error;
    }
 
    $conn->close();
 } else {
-   echo "temperature is not set";
-} // fyi if any of this was outside the <?php ? > thing then could be html
-// php only gives sends output to the browser whereas I think can show all of html stuff
-?> 
-
-</html>
-
-<!-- COMMENT OUT IF YOU DON'T HAVE THE FOOTER-->
-<div id="content"> </div> <!-- page break -->
-<?php include('private/staff_footer.php'); ?>
+   echo "temperature is not set - fix it";
+}
+?>
