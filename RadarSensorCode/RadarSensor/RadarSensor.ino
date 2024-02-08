@@ -1,68 +1,71 @@
+
+// Libraries //
 #include "Arduino.h"
-#include "60ghzbreathheart.h"
-#include "RTC.h"
-#include "WiFiS3.h"
-//#include "FloatToString" library aka download if you don't have it Haley
+#include "60ghzbreathheart.h"                   // Used to process distance values
+#include "RTC.h"                                // Idk, we can probably delete this
+#include "WiFiS3.h"                             // Wifi module
+//#include "FloatToString"                      // library aka download if you don't have it Haley
+//#include <SoftwareSerial.h>                   // Double check if this is needed for additional serial ports
 
-//Marcos
-#define TOLERANCE 1.1f
-#define VALIDINPUT(x) (x>40.f && x<200.f) ? x : 0.f;
-
-//#include <SoftwareSerial.h>
-// Choose any two pins that can be used with SoftwareSerial to RX & TX
+// Marcos //
+#define TOLERANCE 1.1f                          // Multipler, to see how much variablibity in the value before we say the bed is missing
+#define VALIDINPUT(x) (x>40.f && x<200.f) ? x : 0.f; // Checks if the input is between 40cm and 200cm, outside the range is invalid, and 0cm is return
 //#define RX_Pin A2
 //#define TX_Pin A3
+#define PERIOD 5000
 
+//  TODO: Digital Serial Code //
 //SoftwareSerial mySerial = SoftwareSerial(RX_Pin, TX_Pin);
-
 // we'll be using software serial
 //BreathHeart_60GHz radar = BreathHeart_60GHz(&mySerial);
 
-// can also try hardware serial with
 
-//WIFI CODE
-const char ssid[] = "NatalieiPhone";  // change your network SSID (name)
-const char pass[] = "nataliehaw";   // change your network password (use for WPA, or use as key for WEP)
+// WIFI Variables //
+const char ssid[] = "NatalieiPhone";            // change your network SSID (name)
+const char pass[] = "nataliehaw";               // change your network password (use for WPA, or use as key for WEP)
 
 WiFiClient client;
 int status = WL_IDLE_STATUS;
 
 int HTTP_PORT = 80;
 String HTTP_METHOD = "GET";
-//char HOST_NAME[] = "192.168.0.26";  // change to your PC's IP address
+//char HOST_NAME[] = "192.168.0.26";            // change to your PC's IP address
 char HOST_NAME[] = "172.17.101.34"; 
 String PATH_NAME = "/capstone/insert_temp.php"; //changed
-String queryString = "?temperature=35.1"; //gonna overwrite this within the loop hopefully
-//WIFI CODE
-
+String queryString = "?temperature=35.1";       //gonna overwrite this within the loop hopefully
 String float_str = "empty";
-//Variables
+
+// Body Detection Variables //
 BreathHeart_60GHz radar = BreathHeart_60GHz(&Serial1);
-float setBedDistance = 0.f;
-float bodyThickness = 10.f; //cm
-static float bodyDistance = 300.f; //cm
+float BedDistance = 0.f;
+float BodyThickness = 10.f;                     //cm
+static float BodyDistance = 300.f;              //cm
+static unsigned int HeartRate = 0;
+static unsigned int BreathingRate = 0;
+unsigned long startMillis;  //some global variables available anywhere in the program
+unsigned long currentMillis;
+
+float SendData[4] = {0};
 
 void setup() {
-  // put your setup code here, to run once:
-  //specs for serial1 is 115200
+
+// Serial Set up //
   Serial.begin(115200);
   Serial1.begin(115200);
+  startMillis = millis();  //initial start time
+  //mySerial.begin(115200);
 
-
-  //  mySerial.begin(115200);
-
-  while(!Serial);   //When the serial port is opened, the program starts to execute.
+  while(!Serial);                               //When the serial port is opened, the program starts to execute.
+  while(!Serial1);
 
   Serial1.println("Readly1");
-  //.println("Readly2");
+  Serial.println("Readly2");
 
-  //WIFI STUFF
-    // check for the WiFi module:
-  if (WiFi.status() == WL_NO_MODULE) {
+  // WIFI Stuff //
+  /*
+  if (WiFi.status() == WL_NO_MODULE) {          // check for the WiFi module:
     Serial.println("Communication with WiFi module failed!");
-    // don't continue
-    while (true)
-      ;
+    while (true);
   }
 
   String fv = WiFi.firmwareVersion();
@@ -85,27 +88,29 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
   //WIFI STUFF
+  */
 }
 
 void loop()
 {
   // put your main code here, to run repeatedly:
 
-  while(setBedDistance == 0.f) 
+  while(BedDistance == 0.f) 
   {
     Serial.println("distance from the bed");
-    setBedDistance = 95.0f;//VALIDINPUT(Serial.parseFloat());
+    BedDistance = 95.0f;//VALIDINPUT(Serial.parseFloat());
   }
 
-  if (Serial1.available() && (setBedDistance != 0.f))
+  if (Serial1.available() && (BedDistance != 0.f))
   {
     //Serial1 isn't always avaialable, it fails a bit and then it avaiable
     //Serial1 is the serial ports pin 0, 1 used for the board
     //printRawData(radar);
-    humanDetection(radar, bodyDistance); //sets bodyDistance to a new value
+    //humanDetection(radar, BodyDistance); //sets bodyDistance to a new value
     //[radardetect, distancedetect] = humanDetection(radar, bodyDistance); //cannot use to get fxtn bc void fxtn so just trust we can take these vars
     //implement smth here that'll send bodyDistance to 
 
+  /*
     //WIFI STUFF
       // connect to web server on port 80:
           // connect to web server on port 80:
@@ -114,7 +119,7 @@ void loop()
       Serial.println("Connected to server");
       // make a HTTP request:
       // send HTTP header
-      float_str = String(bodyDistance); //convert bodyDistance to string for PHP url
+      float_str = String(BodyDistance); //convert bodyDistance to string for PHP url
       queryString = "?temperature="+float_str;
       client.println(HTTP_METHOD + " " + PATH_NAME + queryString + " HTTP/1.1");
       Serial.println(HTTP_METHOD + " " + PATH_NAME + queryString); //wanna know which PHP link to go to
@@ -141,18 +146,20 @@ void loop()
     }
   //WIFI STUFF
     //WIFI STUFF
+  */
 
-    Serial.println(bodyDistance); 
-    if (bodyDistance*100 <40.f || bodyDistance*100 >= 300.f)
+/*
+    Serial.println(BodyDistance); 
+    if (BodyDistance*100 <40.f || BodyDistance*100 >= 300.f)
     {
       Serial.println("Error in reading measurement");
-      Serial.println(bodyDistance);
+      Serial.println(BodyDistance);
     }
-    else if (bodyDistance*100 <= (setBedDistance - bodyThickness))
+    else if (BodyDistance*100 <= (BedDistance - BodyThickness))
     {
       Serial.println("Someone is present infront of the bed");
     }
-    else if (bodyDistance*100 > (setBedDistance*TOLERANCE))
+    else if (BodyDistance*100 > (BedDistance*TOLERANCE))
     {
       Serial.println("Bed not detected");
     }
@@ -160,7 +167,74 @@ void loop()
     {
       Serial.println("No user detected");
     }
+    */
     //heartRateDetection(radar);
+    radar.HumanExis_Func();           //Human existence information output
+    if(radar.sensor_report != 0x00){
+      switch(radar.sensor_report){
+        case DISVAL:
+        // Modifies returnValue value
+        /*
+          Serial.print("The sensor judges the distance to the human body to be: ");
+          Serial.print(radar.distance, DEC);
+          Serial.println(" m");
+          Serial.println("----------------------------");
+          */
+
+          BodyDistance = radar.distance;
+
+          break;
+      }
+    }
+    delay(200);                       //Add time delay to avoid program jam
+    radar.Breath_Heart();           //Breath and heartbeat information output
+    if(radar.sensor_report != 0x00){
+      switch(radar.sensor_report){
+        case HEARTRATEVAL:
+          Serial.print("Sensor monitored the current heart rate value is: ");
+          Serial.println(radar.heart_rate, DEC);
+          Serial.println("----------------------------");
+          HeartRate = radar.heart_rate;
+
+          break;
+        case BREATHVAL:
+          Serial.print("Sensor monitored the current breath rate value is: ");
+          Serial.println(radar.breath_rate, DEC);
+          Serial.println("----------------------------");
+          BreathingRate = radar.breath_rate;
+
+          break;
+
+      }
+    }
+    delay(200);                       //Add time delay to avoid program jam
+
+
+  }
+
+
+  currentMillis = millis();  //get the current "time" (actually the number of milliseconds since the program started)
+  if (currentMillis - startMillis >= PERIOD)  //test whether the period has elapsed
+  {
+    
+    SendData[0] = BodyDistance;
+    SendData[1] =float(HeartRate);
+    SendData[2] =float(BreathingRate);
+    SendData[3] = 1;
+    Serial.println("********************************************");
+    Serial.print("Distance: ");
+    Serial.print(SendData[0]);
+    Serial.print(" ");
+    Serial.print("HeartRate: ");
+    Serial.print(SendData[1]);
+    Serial.print(" ");
+    Serial.print("Breathing Rate: ");
+    Serial.print(SendData[2]);
+    Serial.print(" ");
+    Serial.print("Time: ");
+    Serial.println(SendData[3]);
+    Serial.println("********************************************");
+    startMillis = currentMillis;
   }
 
  
