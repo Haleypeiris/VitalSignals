@@ -13,6 +13,7 @@
 //#define RX_Pin A2
 //#define TX_Pin A3
 #define PERIOD 5000
+#define LENOFHRDATA 11
 
 //  TODO: Digital Serial Code //
 //SoftwareSerial mySerial = SoftwareSerial(RX_Pin, TX_Pin);
@@ -45,7 +46,10 @@ static unsigned int BreathingRate = 0;
 unsigned long startMillis;  //some global variables available anywhere in the program
 unsigned long currentMillis;
 
-float SendData[4] = {0};
+//Todo: change itno structu
+float SendData[4] = {0};                        //0: Distance, 1: Average HeartRate, 2: Breathing Rate
+int HeartRateStorage[2] = {1,0};                 //0: Length of Data, 2-10: HeartRate Data
+
 
 void setup() {
 
@@ -169,6 +173,7 @@ void loop()
     }
     */
     //heartRateDetection(radar);
+
     radar.HumanExis_Func();           //Human existence information output
     if(radar.sensor_report != 0x00){
       switch(radar.sensor_report){
@@ -194,9 +199,17 @@ void loop()
           Serial.print("Sensor monitored the current heart rate value is: ");
           Serial.println(radar.heart_rate, DEC);
           Serial.println("----------------------------");
-          HeartRate = radar.heart_rate;
 
+          // Store HeartRate
+          // add counter, rolling average
+          if(HeartRateStorage[0]<10)
+          //TODO: reject invalid heartrates
+          //heartrate = heartrate/count
+          //count++
+            HeartRateStorage[1] = (HeartRateStorage[1] + radar.heart_rate);
+            HeartRateStorage[0] += 1;
           break;
+
         case BREATHVAL:
           Serial.print("Sensor monitored the current breath rate value is: ");
           Serial.println(radar.breath_rate, DEC);
@@ -214,11 +227,17 @@ void loop()
 
 
   currentMillis = millis();  //get the current "time" (actually the number of milliseconds since the program started)
+  // can delete this for just the some
   if (currentMillis - startMillis >= PERIOD)  //test whether the period has elapsed
   {
+    //Calculate average HeartRate
+    float AvgHeartRate = HeartRateData[1]/HeartRateData[0];
+    HeartRateData[0] = 1;
+    HeartRateData[1] = 0;
+
     
     SendData[0] = BodyDistance;
-    SendData[1] =float(HeartRate);
+    SendData[1] =float(AvgHeartRate);
     SendData[2] =float(BreathingRate);
     SendData[3] = 1;
     Serial.println("********************************************");
