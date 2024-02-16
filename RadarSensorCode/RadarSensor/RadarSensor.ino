@@ -1,8 +1,6 @@
-
 // Libraries //
 #include "Arduino.h"
 #include "60ghzbreathheart.h"                   // Used to process distance values
-#include "RTC.h"                                // Idk, we can probably delete this
 #include "WiFiS3.h"                             // Wifi module
 //#include "FloatToString"                      // library aka download if you don't have it Haley
 //#include <SoftwareSerial.h>                   // Double check if this is needed for additional serial ports
@@ -12,8 +10,14 @@
 #define VALIDINPUT(x) (x>40.f && x<200.f) ? x : 0.f; // Checks if the input is between 40cm and 200cm, outside the range is invalid, and 0cm is return
 //#define RX_Pin A2
 //#define TX_Pin A3
-#define PERIOD 5000
+#define PERIOD 7000
 #define LENOFHRDATA 11
+#define HUMANPRESENSE 0x80
+#define DISTANCECMD 0x04
+#define HEARTRATE 0x85
+#define HEARTRATECMD 0x02
+#define RESPIRATORY 0x81
+#define BREATHINGCMD 0x02
 
 //  TODO: Digital Serial Code //
 //SoftwareSerial mySerial = SoftwareSerial(RX_Pin, TX_Pin);
@@ -45,15 +49,16 @@ static unsigned int HeartRate = 0;
 static unsigned int BreathingRate = 0;
 unsigned long startMillis;  //some global variables available anywhere in the program
 unsigned long currentMillis;
+int SSHeader;
 
 //Todo: change itno structu
 float SendData[4] = {0};                        //0: Distance, 1: Average HeartRate, 2: Breathing Rate
-int HeartRateStorage[2] = {1,0};                 //0: Length of Data, 2-10: HeartRate Data
+int HeartRateStorage[2] = {0,0};                 //0: Length of Data, 2-10: HeartRate Data
 
+void setup() 
+{
 
-void setup() {
-
-// Serial Set up //
+  // Serial Set up //
   Serial.begin(115200);
   Serial1.begin(115200);
   startMillis = millis();  //initial start time
@@ -64,6 +69,9 @@ void setup() {
 
   Serial1.println("Readly1");
   Serial.println("Readly2");
+
+  radar.reset_val();
+  radar.reset_func();
 
   // WIFI Stuff //
   /*
@@ -102,17 +110,13 @@ void loop()
   while(BedDistance == 0.f) 
   {
     Serial.println("distance from the bed");
-    BedDistance = 95.0f;//VALIDINPUT(Serial.parseFloat());
+    BedDistance = 95.0f; //VALIDINPUT(Serial.parseFloat());
   }
-
   if (Serial1.available() && (BedDistance != 0.f))
   {
+    
     //Serial1 isn't always avaialable, it fails a bit and then it avaiable
     //Serial1 is the serial ports pin 0, 1 used for the board
-    //printRawData(radar);
-    //humanDetection(radar, BodyDistance); //sets bodyDistance to a new value
-    //[radardetect, distancedetect] = humanDetection(radar, bodyDistance); //cannot use to get fxtn bc void fxtn so just trust we can take these vars
-    //implement smth here that'll send bodyDistance to 
 
   /*
     //WIFI STUFF
@@ -152,76 +156,40 @@ void loop()
     //WIFI STUFF
   */
 
-/*
-    Serial.println(BodyDistance); 
-    if (BodyDistance*100 <40.f || BodyDistance*100 >= 300.f)
-    {
-      Serial.println("Error in reading measurement");
-      Serial.println(BodyDistance);
-    }
-    else if (BodyDistance*100 <= (BedDistance - BodyThickness))
-    {
-      Serial.println("Someone is present infront of the bed");
-    }
-    else if (BodyDistance*100 > (BedDistance*TOLERANCE))
-    {
-      Serial.println("Bed not detected");
-    }
-    else
-    {
-      Serial.println("No user detected");
-    }
-    */
-    //heartRateDetection(radar);
 
-    radar.HumanExis_Func();           //Human existence information output
-    if(radar.sensor_report != 0x00){
-      switch(radar.sensor_report){
-        case DISVAL:
-        // Modifies returnValue value
-        /*
-          Serial.print("The sensor judges the distance to the human body to be: ");
-          Serial.print(radar.distance, DEC);
-          Serial.println(" m");
-          Serial.println("----------------------------");
-          */
-
-          BodyDistance = radar.distance;
-
-          break;
+  radar.recvRadarBytes();           //Receive radar data and start processing
+  //radar.showData();                 //Serial port prints a set of received data frames
+  SSHeader = int(radar.Msg[0]);
+  switch (SSHeader)
+  {
+    case HUMANPRESENSE:
+      if (int(radar.Msg[1])==DISTANCE)
+      {
+        radar.distance = radar.Msg[4]<<8 | radar.Msg[5]; //Msg[4] -> MSB, Msg[5] -> LSB
+        Serial.print("Distance: ");
+        Serial.println(radar.distance);
       }
-    }
-    delay(200);                       //Add time delay to avoid program jam
-    radar.Breath_Heart();           //Breath and heartbeat information output
-    if(radar.sensor_report != 0x00){
-      switch(radar.sensor_report){
-        case HEARTRATEVAL:
-          Serial.print("Sensor monitored the current heart rate value is: ");
-          Serial.println(radar.heart_rate, DEC);
-          Serial.println("----------------------------");
+      break;
 
-          // Store HeartRate
-          // add counter, rolling average
-          if(HeartRateStorage[0]<10)
-          //TODO: reject invalid heartrates
-          //heartrate = heartrate/count
-          //count++
-            HeartRateStorage[1] = (HeartRateStorage[1] + radar.heart_rate);
-            HeartRateStorage[0] += 1;
-          break;
-
-        case BREATHVAL:
-          Serial.print("Sensor monitored the current breath rate value is: ");
-          Serial.println(radar.breath_rate, DEC);
-          Serial.println("----------------------------");
-          BreathingRate = radar.breath_rate;
-
-          break;
-
+    case HEARTRATE:
+      if (int(radar.Msg[1]) == HEARTRATECMD)
+      {
+        radar.heart_rate = radar.Msg[4];
+        Serial.print("Heart Rate: ");
+        Serial.println(radar.heart_rate);
+        HeartRateStorage[0] += radar.heart_rate;
+        HeartRateStorage[1] += 1;
+      
       }
-    }
-    delay(200);                       //Add time delay to avoid program jam
+      break;
 
+    case RESPIRATORY:
+      if(int(radar.Msg[1]) == BREATHINGCMD)
+      {
+        radar.breath_rate = radar.Msg[4];
+        Serial.print("Breathing Rate: ");
+        Serial.println(radar.breath_rate);
+      }
 
   }
 
@@ -230,14 +198,24 @@ void loop()
   // can delete this for just the some
   if (currentMillis - startMillis >= PERIOD)  //test whether the period has elapsed
   {
+    float AvgHeartRate = 0.00;
     //Calculate average HeartRate
-    float AvgHeartRate = HeartRateData[1]/HeartRateData[0];
-    HeartRateData[0] = 1;
-    HeartRateData[1] = 0;
+    if(HeartRateStorage[1] != 0)
+    {
+      
+      AvgHeartRate = HeartRateStorage[0]/HeartRateStorage[1];
+    }
+    
+    HeartRateStorage[0] = 0;
+    HeartRateStorage[1] = 0;
 
     
-    SendData[0] = BodyDistance;
-    SendData[1] =float(AvgHeartRate);
+    //SendData[0] = 0;
+    //SendData[1] =float(AvgHeartRate);
+
+    Serial.print("Average Heart Rate: ");
+    Serial.println(AvgHeartRate);
+    /*
     SendData[2] =float(BreathingRate);
     SendData[3] = 1;
     Serial.println("********************************************");
@@ -253,120 +231,11 @@ void loop()
     Serial.print("Time: ");
     Serial.println(SendData[3]);
     Serial.println("********************************************");
+    */
     startMillis = currentMillis;
   }
 
- 
-}
-
-void printRawData(BreathHeart_60GHz radar)
-{
-  //200ms delay? to prevent jamming of data, idek
-  //prints raw data
-  radar.recvRadarBytes();           //Receive radar data and start processing
-  radar.showData();                 //Serial port prints a set of received data frames
-  delay(200);
-}
-
-void humanDetection(BreathHeart_60GHz radar, float& returnValue)
-{
-
-/* Output: No return value, but modifies the value returnValue by reference. */
-
-  radar.HumanExis_Func();           //Human existence information output
-  if(radar.sensor_report != 0x00){
-    switch(radar.sensor_report){
-      case NOONE:
-        Serial.println("Nobody here.");
-        Serial.println("----------------------------");
-        break;
-      case SOMEONE:
-        Serial.println("Someone is here.");
-        Serial.println("----------------------------");
-        break;
-      /*case NONEPSE:
-        Serial.println("No human activity messages.");
-        Serial.println("----------------------------");
-        break; */
-      /*case BODYVAL:
-        Serial.print("The parameters of human body signs are: ");
-        Serial.println(radar.bodysign_val, DEC);
-        Serial.println("----------------------------");
-        break; */
-      case DISVAL:
-      // Modifies returnValue value
-        Serial.print("The sensor judges the distance to the human body to be: ");
-        Serial.print(radar.distance, DEC);
-        Serial.println(" m");
-        Serial.println("----------------------------");
-
-        returnValue = radar.distance; //where body distance is being calculated so it gets saved from this function? rewrites it?
-
-        break;
-    }
+  delay(400);                       //Add time delay to avoid program jam
   }
-  delay(200);                       //Add time delay to avoid program jam
 }
 
-void heartRateDetection(BreathHeart_60GHz radar)
-{
-  radar.Breath_Heart();           //Breath and heartbeat information output
-  if(radar.sensor_report != 0x00){
-    switch(radar.sensor_report){
-      case HEARTRATEVAL:
-        Serial.print("Sensor monitored the current heart rate value is: ");
-        Serial.println(radar.heart_rate, DEC);
-        Serial.println("----------------------------");
-        break;
-      case HEARTRATEWAVE:  //Valid only when real-time data transfer mode is on
-        Serial.print("The heart rate waveform(Sine wave) -- point 1: ");
-        Serial.print(radar.heart_point_1);
-        Serial.print(", point 2 : ");
-        Serial.print(radar.heart_point_2);
-        Serial.print(", point 3 : ");
-        Serial.print(radar.heart_point_3);
-        Serial.print(", point 4 : ");
-        Serial.print(radar.heart_point_4);
-        Serial.print(", point 5 : ");
-        Serial.println(radar.heart_point_5);
-        Serial.println("----------------------------");
-        break;
-      case BREATHNOR:
-        Serial.println("Sensor detects current breath rate is normal.");
-        Serial.println("----------------------------");
-        break;
-      case BREATHRAPID:
-        Serial.println("Sensor detects current breath rate is too fast.");
-        Serial.println("----------------------------");
-        break;
-      case BREATHSLOW:
-        Serial.println("Sensor detects current breath rate is too slow.");
-        Serial.println("----------------------------");
-        break;
-      case BREATHNONE:
-        Serial.println("There is no breathing information yet, please wait...");
-        Serial.println("----------------------------");
-        break;
-      case BREATHVAL:
-        Serial.print("Sensor monitored the current breath rate value is: ");
-        Serial.println(radar.breath_rate, DEC);
-        Serial.println("----------------------------");
-        break;
-      case BREATHWAVE:  //Valid only when real-time data transfer mode is on
-        Serial.print("The breath rate waveform(Sine wave) -- point 1: ");
-        Serial.print(radar.breath_point_1);
-        Serial.print(", point 2 : ");
-        Serial.print(radar.breath_point_2);
-        Serial.print(", point 3 : ");
-        Serial.print(radar.breath_point_3);
-        Serial.print(", point 4 : ");
-        Serial.print(radar.breath_point_4);
-        Serial.print(", point 5 : ");
-        Serial.println(radar.breath_point_5);
-        Serial.println("----------------------------");
-        break;
-    }
-  }
-  delay(200);                       //Add time delay to avoid program jam
-
-}
