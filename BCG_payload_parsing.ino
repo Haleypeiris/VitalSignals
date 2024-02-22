@@ -1,0 +1,92 @@
+// Libraries //
+#include "Arduino.h"
+byte SOF = 0;
+byte length = 0;
+byte inBuffer[2];
+byte reset_response[6];
+int data, debug;
+
+void setup() {
+  // put your setup code here, to run once:
+  pinMode(LED_BUILTIN, OUTPUT);      // set LED pin as output
+ 
+  digitalWrite(LED_BUILTIN, HIGH);    // switch on LED pin
+  delay(1000); // 1s delay
+  digitalWrite(LED_BUILTIN, LOW);    // switch off LED pin
+
+  Serial.begin(230400); // serial monitor output
+  Serial1.begin(230400); // RX/TX pins on Arduino
+
+  while(!Serial);
+  while(!Serial1);
+  Serial.println("Ready");
+
+}
+
+void loop() {
+
+  while (Serial1.available() > 0) {
+    Serial1.readBytesUntil('\n',inBuffer,2); // read first 2 bits for SOF and length
+    if(inBuffer[0]==0xFE){ // if SOF detected, continue
+      if (debug==1){
+        Serial.println("SOF detected");
+        Serial.println(inBuffer[0],HEX);
+        Serial.print("length = ");
+        Serial.println(inBuffer[1],DEC);
+      }
+      
+      length = inBuffer[1]+4; // length of data frame
+      byte dataFrame[length];
+      data = Serial1.readBytesUntil('\n',dataFrame,length); // read data frame
+
+      for (int i=0;i<data;i++){
+        Serial.print(dataFrame[i],HEX);
+        Serial.print(" ");
+      }
+      Serial.print('\n');
+      // define BCG payload
+      byte ID = dataFrame[0];
+      byte type = dataFrame[1]<<8 | dataFrame[2];
+      uint32_t time = dataFrame[6]<<24 |dataFrame[5]<<16 | dataFrame[4]<<8 | dataFrame[3];
+      uint32_t HR = dataFrame[10]<<24 |dataFrame[9]<<16 | dataFrame[8]<<8 | dataFrame[7];
+      byte RR = dataFrame[14]<<24 |dataFrame[13]<<16 | dataFrame[12]<<8 | dataFrame[11];
+      byte HRV = dataFrame[18]<<24 |dataFrame[17]<<16 | dataFrame[16]<<8 | dataFrame[15];
+      byte fft_output = dataFrame[22]<<24 |dataFrame[21]<<16 | dataFrame[20]<<8 | dataFrame[19];
+      byte status = dataFrame[26]<<24 |dataFrame[25]<<16 | dataFrame[24]<<8 | dataFrame[23];
+      byte B2B = dataFrame[30]<<24 |dataFrame[29]<<16 | dataFrame[28]<<8 | dataFrame[27];
+      byte B2B1 = dataFrame[34]<<24 |dataFrame[33]<<16 | dataFrame[32]<<8 | dataFrame[31];
+      byte B2B2 = dataFrame[38]<<24 |dataFrame[37]<<16 | dataFrame[36]<<8 | dataFrame[35];
+      byte FCS = dataFrame[39];
+      Serial.print("TIME ");
+      Serial.println(time);
+      }
+
+  }
+}
+
+int resetBCG(){
+  byte reset[] = {0xFE,0x00,0x01,0x00,0x02,0xFD}; // reset command
+  while (Serial1.available() > 0) {
+
+    if(Serial.availableForWrite() > 0){
+      Serial.write(reset,sizeof(reset)); //send reset command
+      digitalWrite(LED_BUILTIN, HIGH); // set LED pin on
+      break;
+    }
+    //read BCG response
+    Serial1.readBytesUntil('\n',reset_response,sizeof(reset_response));
+    
+    if (debug==1){
+      for (int i=0;i<sizeof(reset_response);i++){
+        Serial.print(reset_response[i],HEX);
+        Serial.print(" ");
+      }
+      Serial.print('\n');
+    }
+    digitalWrite(LED_BUILTIN, LOW);
+      
+    if(reset_response[5]==0){break;} // indicates successful reset of BCG
+  }
+}
+
+
