@@ -46,17 +46,19 @@ void loop() {
       Serial.print('\n');
       // define BCG payload
       byte ID = dataFrame[0];
-      byte type = dataFrame[1]<<8 | dataFrame[2];
+      uint16_t type = dataFrame[1]<<8 | dataFrame[2];
       uint32_t time = dataFrame[6]<<24 |dataFrame[5]<<16 | dataFrame[4]<<8 | dataFrame[3];
       uint32_t HR = dataFrame[10]<<24 |dataFrame[9]<<16 | dataFrame[8]<<8 | dataFrame[7];
-      byte RR = dataFrame[14]<<24 |dataFrame[13]<<16 | dataFrame[12]<<8 | dataFrame[11];
-      byte HRV = dataFrame[18]<<24 |dataFrame[17]<<16 | dataFrame[16]<<8 | dataFrame[15];
-      byte fft_output = dataFrame[22]<<24 |dataFrame[21]<<16 | dataFrame[20]<<8 | dataFrame[19];
-      byte status = dataFrame[26]<<24 |dataFrame[25]<<16 | dataFrame[24]<<8 | dataFrame[23];
-      byte B2B = dataFrame[30]<<24 |dataFrame[29]<<16 | dataFrame[28]<<8 | dataFrame[27];
-      byte B2B1 = dataFrame[34]<<24 |dataFrame[33]<<16 | dataFrame[32]<<8 | dataFrame[31];
-      byte B2B2 = dataFrame[38]<<24 |dataFrame[37]<<16 | dataFrame[36]<<8 | dataFrame[35];
-      byte FCS = dataFrame[39];
+      uint32_t SV = dataFrame[14]<<24 |dataFrame[13]<<16 | dataFrame[12]<<8 | dataFrame[11];
+      uint32_t RR = dataFrame[18]<<24 |dataFrame[17]<<16 | dataFrame[16]<<8 | dataFrame[15];
+      uint32_t HRV = dataFrame[22]<<24 |dataFrame[21]<<16 | dataFrame[20]<<8 | dataFrame[19];
+      
+      uint32_t fft_output = dataFrame[26]<<24 |dataFrame[25]<<16 | dataFrame[24]<<8 | dataFrame[23];
+      uint32_t status = dataFrame[30]<<24 |dataFrame[29]<<16 | dataFrame[28]<<8 | dataFrame[27];
+      uint32_t B2B = dataFrame[34]<<24 |dataFrame[33]<<16 | dataFrame[32]<<8 | dataFrame[31];
+      uint32_t B2B1 = dataFrame[38]<<24 |dataFrame[37]<<16 | dataFrame[36]<<8 | dataFrame[35];
+      uint32_t B2B2 = dataFrame[42]<<24 |dataFrame[41]<<16 | dataFrame[40]<<8 | dataFrame[39];
+      uint32_t FCS = dataFrame[43];
       Serial.print("TIME ");
       Serial.println(time);
       }
@@ -88,5 +90,3 @@ int resetBCG(){
     if(reset_response[5]==0){break;} // indicates successful reset of BCG
   }
 }
-
-
