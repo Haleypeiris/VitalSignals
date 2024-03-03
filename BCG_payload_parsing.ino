@@ -4,7 +4,8 @@ byte SOF = 0;
 byte length = 0;
 byte inBuffer[2];
 byte reset_response[6];
-int data, debug;
+int data;
+int debug=1;
 
 void setup() {
   // put your setup code here, to run once:
@@ -20,6 +21,29 @@ void setup() {
   while(!Serial);
   while(!Serial1);
   Serial.println("Ready");
+
+
+  byte reset[] = {0xFE,0x00,0x01,0x00,0x02,0xFD}; // reset command
+  while (Serial1.available() > 0) {
+
+    if(Serial.availableForWrite() > 0){
+      Serial.write(reset,sizeof(reset)); //send reset command
+      digitalWrite(LED_BUILTIN, HIGH); // set LED pin on
+      break;
+    }
+    //read BCG response
+    Serial1.readBytesUntil('\n',reset_response,sizeof(reset_response));
+    
+    if (debug==1){
+      for (int i=0;i<sizeof(reset_response);i++){
+        Serial.print(reset_response[i],HEX);
+        Serial.print(" ");
+      }
+      Serial.print('\n');
+    }
+    digitalWrite(LED_BUILTIN, LOW);
+      
+    if(reset_response[5]==0){break;} // indicates successful reset of BCG
 
 }
 
