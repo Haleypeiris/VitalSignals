@@ -19,6 +19,11 @@
 #define RESPIRATORY 0x81
 #define BREATHINGCMD 0x02
 
+// Setting Debug mode
+#ifndef DEBUG_MODE
+#define DEBUG_MODE
+#endif
+
 //  TODO: Digital Serial Code //
 //SoftwareSerial mySerial = SoftwareSerial(RX_Pin, TX_Pin);
 // we'll be using software serial
@@ -107,11 +112,18 @@ void loop()
 {
   // put your main code here, to run repeatedly:
 
+
   while(BedDistance == 0.f) 
   {
+#ifdef
+    Serial.println("distance from the bed - debug mode");
+    BedDistance = 95.0f; //VALIDINPUT(Serial.parseFloat());
+#else
     Serial.println("distance from the bed");
     BedDistance = 95.0f; //VALIDINPUT(Serial.parseFloat());
+#endif
   }
+
   if (Serial1.available() && (BedDistance != 0.f))
   {
     
@@ -166,8 +178,12 @@ void loop()
       if (int(radar.Msg[1])==DISTANCE)
       {
         radar.distance = radar.Msg[4]<<8 | radar.Msg[5]; //Msg[4] -> MSB, Msg[5] -> LSB
+
+#ifdef DEBUG_MODE
         Serial.print("Distance: ");
         Serial.println(radar.distance);
+#endif
+
       }
       break;
 
@@ -175,8 +191,12 @@ void loop()
       if (int(radar.Msg[1]) == HEARTRATECMD)
       {
         radar.heart_rate = radar.Msg[4];
+
+#ifdef DEBUG_MODE
         Serial.print("Heart Rate: ");
         Serial.println(radar.heart_rate);
+#endif
+
         HeartRateStorage[0] += radar.heart_rate;
         HeartRateStorage[1] += 1;
       
@@ -187,8 +207,12 @@ void loop()
       if(int(radar.Msg[1]) == BREATHINGCMD)
       {
         radar.breath_rate = radar.Msg[4];
+
+#ifdef DEBUG_MODE
         Serial.print("Breathing Rate: ");
         Serial.println(radar.breath_rate);
+#endif
+
       }
 
   }
@@ -205,6 +229,7 @@ void loop()
       
       AvgHeartRate = HeartRateStorage[0]/HeartRateStorage[1];
     }
+    else
     
     HeartRateStorage[0] = 0;
     HeartRateStorage[1] = 0;
@@ -213,9 +238,10 @@ void loop()
     //SendData[0] = 0;
     //SendData[1] =float(AvgHeartRate);
 
+#ifdef DEBUG_MODE
+/*
     Serial.print("Average Heart Rate: ");
     Serial.println(AvgHeartRate);
-    /*
     SendData[2] =float(BreathingRate);
     SendData[3] = 1;
     Serial.println("********************************************");
@@ -232,6 +258,7 @@ void loop()
     Serial.println(SendData[3]);
     Serial.println("********************************************");
     */
+#endif
     startMillis = currentMillis;
   }
 
