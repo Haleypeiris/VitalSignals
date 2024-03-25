@@ -7,7 +7,7 @@
 
 // Marcos //
 #define TOLERANCE 1.1f                                    // Multipler, to see how much variablibity in the value before we say the bed is missing
-#define VALIDINPUT(x) (x > 40.f && x < 200.f) ? x : 0.f;  // Checks if the input is between 40cm and 200cm, outside the range is invalid, and 0cm is return
+#define VALIDINPUT(x) (x > 40.f && x < 200.f) ? x : 0.f  // Checks if the input is between 40cm and 200cm, outside the range is invalid, and 0cm is return
 #define RX_PIN A2
 #define TX_PIN A3
 #define PERIOD 7000
@@ -21,11 +21,18 @@
 
 // Setting Debug mode
 #ifndef DEBUG_MODE
-#define DEBUG_MODE
+//#define DEBUG_MODE
 #endif
 
-//  TODO: Digital Serial Code //
-SoftwareSerial mySerial = SoftwareSerial(RX_PIN, TX_PIN);
+// Setting WIFI mode
+#ifndef WIFI_MODE
+//#define WIFI_MODE
+#endif
+
+// Heart Rate and Breathing functions
+#ifndef OTHER_MODES
+//#define OTHER_MODES
+#endif
 
 ArduinoLEDMatrix matrix;
 const uint32_t heart[] = {
@@ -40,40 +47,45 @@ const uint32_t clear[] = {
 };
 
 // WIFI Variables //
-const char ssid[] = "NatalieiPhone";  // change your network SSID (name) //specific to Natalie's set up
-const char pass[] = "nataliehaw";     // change your network password (use for WPA, or use as key for WEP) //specific to Natalie's set up
+#ifdef WIFI_MODE
+  const char ssid[] = "NatalieiPhone";  // change your network SSID (name) //specific to Natalie's set up
+  const char pass[] = "nataliehaw";     // change your network password (use for WPA, or use as key for WEP) //specific to Natalie's set up
 
-WiFiClient client;
-int status = WL_IDLE_STATUS;
+  WiFiClient client;
+  int status = WL_IDLE_STATUS;
 
-int HTTP_PORT = 80;
-String HTTP_METHOD = "GET";
-char HOST_NAME[] = "172.20.10.2";                                            //change to computer's IP address //specific to Natalie's set up
-String PATH_INSERT = "/capstone/bcgparsing/public/staff/insert_values.php";  //specific to Natalie's set up
+  int HTTP_PORT = 80;
+  String HTTP_METHOD = "GET";
+  char HOST_NAME[] = "172.20.10.2";                                            //change to computer's IP address //specific to Natalie's set up
+  String PATH_INSERT = "/capstone/bcgparsing/public/staff/insert_values.php";  //specific to Natalie's set up
 
-String queryString = "?measure=2";
-String float_distance = "empty";
-String float_hr = "empty";
-String float_rr = "empty";
-//wifi end
+  String queryString = "?measure=2";
+  String float_distance = "empty";
+  String float_hr = "empty";
+  String float_rr = "empty";
+#endif //WIFI_MODE
+
 
 // Body Detection Variables //
 BreathHeart_60GHz radar = BreathHeart_60GHz(&Serial1);
 float BedDistance = 0.f;
-float BodyThickness = 10.f;         //cm
+float MaxBodyThickness = 15.f;         //cm
 static float BodyDistance = 300.f;  //cm
-static unsigned int HeartRate = 0;
-static unsigned int BreathingRate = 0;
+bool BedOccupancy = false;
+int FalseCounter = 0;
 unsigned long startMillis;  //some global variables available anywhere in the program
 unsigned long currentMillis;
 int SSHeader;
 
-//Todo: change itno structu
+#ifdef OTHER_MODES
+//Todo: change into structu
 float SendData[4] = { 0 };           //0: Distance, 1: Average HeartRate, 2: Breathing Rate
 int HeartRateStorage[2] = { 0, 0 };  //0: Length of Data, 2-10: HeartRate Data
+static unsigned int HeartRate = 0;
+static unsigned int BreathingRate = 0;
+#endif //OTHER_MODES
 
-////////////////////////// WILL NOT WORK IF XAMPP IS NOT ON
-
+#ifdef WIFI_MODE
 void sendGET(char HOST_NAME[])  //client function to send/receive GET request data.
 {
   //if (client.connect(myserver, 80)) {  //starts client connection, checks for connection
@@ -102,24 +114,21 @@ void sendGET(char HOST_NAME[])  //client function to send/receive GET request da
   Serial.println();
   client.stop();  //stop client
 }  // end of sendget
+#endif
 
-
-void setup() {
+void setup() 
+{
 
   // Serial Set up //
   Serial.begin(115200);
   Serial1.begin(115200);
   startMillis = millis();  //initial start time
-  mySerial.begin(115200);
 
   while (!Serial)
-    ;  //When the serial port is opened, the program starts to execute.
+    Serial.println("Seria1 Error");  //When the serial port is opened, the program starts to execute.
   while (!Serial1)
-    ;
-
-  Serial1.println("Readly1");
-  Serial.println("Readly2");
-
+    Serial.println("Serial1 Error");
+  
   radar.reset_val();
   radar.reset_func();
 
@@ -127,19 +136,22 @@ void setup() {
   matrix.begin();
 
   // WIFI Stuff //
-  /*
- if (WiFi.status() == WL_NO_MODULE) {          // check for the WiFi module:
+#ifdef WIFI_MODE
+  if (WiFi.status() == WL_NO_MODULE) 
+  {          // check for the WiFi module:
     Serial.println("Communication with WiFi module failed!");
     while (true);
   }
 
   String fv = WiFi.firmwareVersion();
-  if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
+  if (fv < WIFI_FIRMWARE_LATEST_VERSION) 
+  {
     Serial.println("Please upgrade the firmware");
   }
 
   // attempt to connect to WiFi network:
-  while (status != WL_CONNECTED) {
+  while (status != WL_CONNECTED) 
+  {
     //Serial.print("Attempting to connect to SSID: ");
     //Serial.println(ssid); // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
     status = WiFi.begin(ssid, pass);
@@ -150,14 +162,15 @@ void setup() {
   //Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
   Serial.println("wifi worked");
-  */
-  //end of wifi
+
+#endif //WIFI_MODE
 }
 
-void loop() {
+void loop() 
+{
   // put your main code here, to run repeatedly:
-
-  while (BedDistance == 0.f) {
+  while (BedDistance == 0.f) 
+  {
 #ifdef DEBUG_MODE
     Serial.println("distance from the bed - debug mode");
     BedDistance = 95.0f;  //VALIDINPUT(Serial.parseFloat());
@@ -167,43 +180,58 @@ void loop() {
 #endif
   }
 
-  if (Serial1.available() && (BedDistance != 0.f)) {
+  if (Serial1.available() && (BedDistance != 0.f)) 
+  {
+#ifdef WIFI_MODE
     float_distance = String(BodyDistance);
     //Serial.println(float_distance); //Need to create separate request or separate ?measure for it
     //queryString = "?measure="+float_distance;
     //sendGET(HOST_NAME);
-
-    //Serial1 isn't always avaialable, it fails a bit and then it avaiable
-    //Serial1 is the serial ports pin 0, 1 used for the board
+#endif
 
     radar.recvRadarBytes();  //Receive radar data and start processing
     //radar.showData();                 //Serial port prints a set of received data frames
     SSHeader = int(radar.Msg[0]);
-    switch (SSHeader) {
+    switch (SSHeader) 
+    {
       case HUMANPRESENSE:
-        if (int(radar.Msg[1]) == DISTANCE) {
+        if (int(radar.Msg[1]) == DISTANCE) 
+        {
           radar.distance = radar.Msg[4] << 8 | radar.Msg[5];  //Msg[4] -> MSB, Msg[5] -> LSB
-
+          if(VALIDINPUT(radar.distance)>(BedDistance-MaxBodyThickness) && VALIDINPUT(radar.distance)<BedDistance)
+          {
+            //someone is in bed
+          }
+          else
+          {
+            FalseCounter += 1;
+          }
+          
 #ifdef DEBUG_MODE
           Serial.print("Distance: ");
           Serial.println(radar.distance);
-#endif
+          Serial.print("False Counter");
+          Serial.println(FalseCounter);
+#endif //DEBUG_MODE
         }
         break;
 
+#ifdef OTHER_MODES
       case HEARTRATE:
-        if (int(radar.Msg[1]) == HEARTRATECMD) {
+        if (int(radar.Msg[1]) == HEARTRATECMD) 
+        {
           radar.heart_rate = radar.Msg[4];
-          /* //sendget start
+
+  #ifdef WIFI_MODE      
         float_hr = String(radar.heart_rate);
         queryString = "?measure="+float_hr;
         sendGET(HOST_NAME);
-        //sendget end */
+  #endif //WIFI_MODE
 
-#ifdef DEBUG_MODE
+  #ifdef DEBUG_MODE
           Serial.print("Heart Rate: ");
           Serial.println(radar.heart_rate);
-#endif
+  #endif //DEBUG_MODE
 
           HeartRateStorage[0] += radar.heart_rate;
           HeartRateStorage[1] += 1;
@@ -211,45 +239,57 @@ void loop() {
         break;
 
       case RESPIRATORY:
-        if (int(radar.Msg[1]) == BREATHINGCMD) {
+        if (int(radar.Msg[1]) == BREATHINGCMD) 
+        {
           radar.breath_rate = radar.Msg[4];
 
-#ifdef DEBUG_MODE
+  #ifdef DEBUG_MODE
           Serial.print("Breathing Rate: ");
           Serial.println(radar.breath_rate);
-#endif
+  #endif //DEBUG_MODE
         }
+        break;
+#endif //OTHER_MODES
     }
-    //sendget start
-    /*
-  float_hr = String(radar.heart_rate);
-  float_rr = String(radar.breath_rate);
-  queryString = "?measure="+float_hr+"&rr="+float_rr;
-  Serial.println(queryString);
-  sendGET(HOST_NAME);*/
-    //sendget end
+  
+#ifdef OTHER_MODES
+  #ifdef WIFI_MODE
+    float_hr = String(radar.heart_rate);
+    float_rr = String(radar.breath_rate);
+    queryString = "?measure="+float_hr+"&rr="+float_rr;
+    Serial.println(queryString);
+    sendGET(HOST_NAME);
+  #endif //WIFI_MODE
+#endif //OTHER_MODES
+
 
     currentMillis = millis();  //get the current "time" (actually the number of milliseconds since the program started)
-    // can delete this for just the some
+    // Sending Data every X seconds
     if (currentMillis - startMillis >= PERIOD)  //test whether the period has elapsed
     {
+      if(FalseCounter > 10)
+      {
+        //if there were 10 counts that the user wasn't in bed, return false for this minute
+        BedOccupancy = false;
+      }
+      else
+      {
+        BedOccupancy = true;
+      }
+#ifdef OTHER_MODES
       float AvgHeartRate = 0.00;
       //Calculate average HeartRate
-      if (HeartRateStorage[1] != 0) {
-
+      if (HeartRateStorage[1] != 0) 
+      {
         AvgHeartRate = HeartRateStorage[0] / HeartRateStorage[1];
-      } else
-
+      } 
+      else
+      {
         HeartRateStorage[0] = 0;
+      }    
       HeartRateStorage[1] = 0;
 
-      matrix.loadFrame(heart);
-
-      //SendData[0] = 0;
-      //SendData[1] =float(AvgHeartRate);
-
-#ifdef DEBUG_MODE
-/*
+  #ifdef DEBUG_MODE
     Serial.print("Average Heart Rate: ");
     Serial.println(AvgHeartRate);
     SendData[2] =float(BreathingRate);
@@ -266,18 +306,15 @@ void loop() {
     Serial.print(" ");
     Serial.print("Time: ");
     Serial.println(SendData[3]);
-    Serial.println("********************************************");
-    */
-    
-#endif
+    Serial.println("********************************************");   
+  #endif //DEBUG_MODE
+#endif //OTHER_MODES
+
+      matrix.loadFrame(heart);
       startMillis = currentMillis;
     }
 
     delay(400);  //Add time delay to avoid program jam
-  }
-
-  if(mySerial.available())
-    mySerial.print("New serial port");
-    
+  }  
   matrix.loadFrame(clear);
 }
