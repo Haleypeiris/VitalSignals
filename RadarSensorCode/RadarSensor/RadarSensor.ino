@@ -69,7 +69,7 @@ const uint32_t clear[] = {
 // Body Detection Variables //
 BreathHeart_60GHz radar = BreathHeart_60GHz(&Serial1);
 float BedDistance = 0.f;
-float MaxBodyThickness = 35.f;         //cm
+float MaxBodyThickness = 40.f;         //cm
 static float BodyDistance = 300.f;  //cm
 bool BedOccupancy = false;
 int FalseCounter = 0;
