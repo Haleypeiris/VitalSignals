@@ -10,7 +10,7 @@
 #define VALIDINPUT(x) (x > 40.f && x < 200.f) ? x : 0.f  // Checks if the input is between 40cm and 200cm, outside the range is invalid, and 0cm is return
 #define RX_PIN A2
 #define TX_PIN A3
-#define PERIOD 7000
+#define PERIOD 10500
 #define LENOFHRDATA 11
 #define HUMANPRESENSE 0x80
 #define DISTANCECMD 0x04
@@ -21,7 +21,7 @@
 
 // Setting Debug mode
 #ifndef DEBUG_MODE
-//#define DEBUG_MODE
+#define DEBUG_MODE
 #endif
 
 // Setting WIFI mode
@@ -69,12 +69,13 @@ const uint32_t clear[] = {
 // Body Detection Variables //
 BreathHeart_60GHz radar = BreathHeart_60GHz(&Serial1);
 float BedDistance = 0.f;
-float MaxBodyThickness = 15.f;         //cm
+float MaxBodyThickness = 35.f;         //cm
 static float BodyDistance = 300.f;  //cm
 bool BedOccupancy = false;
 int FalseCounter = 0;
 unsigned long startMillis;  //some global variables available anywhere in the program
 unsigned long currentMillis;
+float validInput;
 int SSHeader;
 
 #ifdef OTHER_MODES
@@ -123,7 +124,8 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
   startMillis = millis();  //initial start time
-
+  pinMode(13, OUTPUT);    // sets the digital pin 13 as output
+  digitalWrite(13, LOW); 
   while (!Serial)
     Serial.println("Seria1 Error");  //When the serial port is opened, the program starts to execute.
   while (!Serial1)
@@ -197,19 +199,31 @@ void loop()
       case HUMANPRESENSE:
         if (int(radar.Msg[1]) == DISTANCE) 
         {
+          validInput = (VALIDINPUT(radar.distance));
           radar.distance = radar.Msg[4] << 8 | radar.Msg[5];  //Msg[4] -> MSB, Msg[5] -> LSB
-          if(VALIDINPUT(radar.distance)>(BedDistance-MaxBodyThickness) && VALIDINPUT(radar.distance)<BedDistance)
+          if(validInput>=(BedDistance-MaxBodyThickness))
           {
-            //someone is in bed
+            if(validInput<BedDistance)
+            {
+              ;//no things needed
+            }
+            else
+            {
+              FalseCounter =FalseCounter + 1;
+            }
           }
           else
           {
-            FalseCounter += 1;
+            FalseCounter =FalseCounter + 1;
           }
           
 #ifdef DEBUG_MODE
           Serial.print("Distance: ");
-          Serial.println(radar.distance);
+          Serial.println(VALIDINPUT(radar.distance));
+          Serial.print("BedDistance");
+          Serial.println(BedDistance);
+          Serial.print("closest point");
+          Serial.println(BedDistance-MaxBodyThickness);
           Serial.print("False Counter");
           Serial.println(FalseCounter);
 #endif //DEBUG_MODE
@@ -267,15 +281,26 @@ void loop()
     // Sending Data every X seconds
     if (currentMillis - startMillis >= PERIOD)  //test whether the period has elapsed
     {
-      if(FalseCounter > 10)
+      if(FalseCounter > 4)
       {
         //if there were 10 counts that the user wasn't in bed, return false for this minute
         BedOccupancy = false;
+        matrix.loadFrame(clear);
+        digitalWrite(13, LOW);
+#ifdef DEBUG_MODE
+        Serial.println("No User in Bed");
+#endif
       }
       else
       {
         BedOccupancy = true;
+        matrix.loadFrame(heart);
+        digitalWrite(13, HIGH);
+#ifdef DEBUG_MODE
+        Serial.println("User in Bed");
+#endif
       }
+      FalseCounter = 0;
 #ifdef OTHER_MODES
       float AvgHeartRate = 0.00;
       //Calculate average HeartRate
@@ -309,12 +334,11 @@ void loop()
     Serial.println("********************************************");   
   #endif //DEBUG_MODE
 #endif //OTHER_MODES
-
-      matrix.loadFrame(heart);
+      
       startMillis = currentMillis;
     }
 
     delay(400);  //Add time delay to avoid program jam
   }  
-  matrix.loadFrame(clear);
+  
 }
