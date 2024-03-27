@@ -120,7 +120,7 @@ const unsigned char sleepstatus_mode_frame[10] = {0x53, 0x59, 0x84, 0x0F, 0x00, 
 #define ERRORNONE 0x33
 
 class BreathHeart_60GHz{
-    private:
+    public:
         Stream *stream;               // e.g. SoftwareSerial or Serial1
         boolean newData;
         byte dataLen;
