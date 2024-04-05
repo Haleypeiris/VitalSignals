@@ -8,24 +8,19 @@
 #include <WiFi.h>
 
 //more wifi stuff to add
-//#include "RegisterMappings.h" //not relevant
 #include "Arduino.h"
 #include "Wire.h"
 #include "esp_wpa2.h"
-//#include <WiFi.h>
 #include "arduino_secrets.h"
-
 //wifi
-
-//92176E77
 WiFiServer server(80);
 WiFiClient client;
 int HTTP_PORT = 80;
 String HTTP_METHOD = "GET";
 
 //for later: transferring host_name to arduino_secrets
-//char HOST_NAME[] = "172.17.97.141"; //mac wifi one thode 
-char HOST_NAME[] = "192.168.2.200"; //mac wifi one thode 
+//char HOST_NAME[] = "172.17.102.220"; //mac wifi 
+char HOST_NAME[] = "192.168.2.200";  //ssid jaz
 String PATH_INSERT = "/capstone/bcgparsing/public/staff/insert_values.php";
 String queryString = "?yAcc=2+&bed_status=0"; //default
 
@@ -34,19 +29,12 @@ String yAcc;
 String bed_status = "0"; //default
 SCL3300 inclinometer;
 String yAccString; 
-//uint32_t period = 10000L; //10s
 int count;
 uint32_t period = 20000L; //5*6000L = 5min
 // Need the following define for SAMD processors
 #if defined(ARDUINO_SAMD_ZERO) && defined(SERIAL_PORT_USBVIRTUAL)
   #define Serial SERIAL_PORT_USBVIRTUAL
 #endif
-
-// //spi thing
-// #define SCK 18
-// #define MISO 23
-// #define MOSI 19
-// #define SS 5
 
 //need sendget for http
 void sendGET(char HOST_NAME[]) //client function to send/receive GET request data.
@@ -83,13 +71,13 @@ void setup() {
   //if (inclinometer.begin(SPI, 5) == false) { //make sure to do begin(#) with SS port pin #
   if (inclinometer.begin(5) == false) { //Default SPI chip/slave select pin is D10
     Serial.print("MOSI: ");
-    Serial.println(MOSI);
+    Serial.println(MOSI); // #define MOSI 23
     Serial.print("MISO: ");
-    Serial.println(MISO);
+    Serial.println(MISO); // #define MISO 19
     Serial.print("SCK: ");
-    Serial.println(SCK);
+    Serial.println(SCK); //#define SCK 18
     Serial.print("SS: ");
-    Serial.println(SS);
+    Serial.println(SS); // #define SS 5
     Serial.println("Murata SCL3300 inclinometer not connected.");
     //inclinometer.reset();
     //while(1); //Freeze
@@ -139,7 +127,7 @@ void setup() {
 
 void loop() {
   
-  pinMode(36, INPUT); //ya for us it's output bc intention is to send bed status here
+  pinMode(36, INPUT); //GPIO pin to arduino: for us it's output bc intention is to send bed status here
   Serial.println(digitalRead(36)); //reads input pin and either will give hi or lo (need to print to read what the value is)
   bed_status = digitalRead(36);
   yAccString = String('"');
@@ -160,18 +148,10 @@ void loop() {
   }
   yAccString += '"';
   //yAccString.replace("-","n");
-  //Serial.println(yAccString); //print if anything
   //Serial.println(count);
 
-  //GPIO INPUT FROM ARDUINO
-  //pinMode(36 or 39 idk, INPUT); //ya for us it's output bc intention is to send bed status here
-  //bed_status = digitalRead(inPin); //reads input pin and either will give hi or lo (need to print to read what the value is)
   bed_status = String(bed_status);
   //queryString = "?yAcc="+yAcc+"&rr="+xAcc+"&yAccString="+yAccString;
   queryString = "?yAcc="+yAcc+"&bed_status="+bed_status+"&yAccString="+yAccString;
-
   sendGET(HOST_NAME);
-
-  //include bed_status parameter as value from GPIO
-
 }
